@@ -1,0 +1,64 @@
+{% extends 'ledger/base.html' %}
+{% block content %}
+<h2 style="font-size:20px;margin-bottom:16px">예산 설정</h2>
+
+<!-- Month nav -->
+<div class="month-nav">
+  <select onchange="changeMonth()" id="year-s">{% for y in years %}<option value="{{ y }}"{% if y==year %}selected{% endif %}>{{ y }}년</option>{% endfor %}</select>
+  <select onchange="changeMonth()" id="month-s">{% for m in months %}<option value="{{ m }}"{% if m==month %}selected{% endif %}>{{ m }}월</option>{% endfor %}</select>
+</div>
+
+<!-- Add budget -->
+<div class="card">
+  <div class="card-title">➕ 예산 추가/수정</div>
+  <form method="post" action="/budget/save/">
+    {% csrf_token %}
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    <div class="form-group">
+      <label class="form-label">카테고리</label>
+      <select name="category" class="form-control">
+        {% for c in categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">예산 금액</label>
+      <input type="text" name="amount" class="form-control" placeholder="500,000" required oninput="fmtNum(this)">
+    </div>
+    <button type="submit" class="btn btn-primary">저장</button>
+  </form>
+</div>
+
+<!-- Current budgets -->
+{% if budgets %}
+<div class="card">
+  <div class="card-title">📋 {{ year }}년 {{ month }}월 예산 목록</div>
+  {% for b in budgets %}
+  <div class="tx-item">
+    <div class="tx-icon" style="background:var(--surface2)">{{ b.category.icon|default:'💰' }}</div>
+    <div class="tx-info">
+      <div class="tx-desc">{{ b.category.name|default:'전체' }}</div>
+      <div class="tx-meta">{{ year }}년 {{ month }}월</div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:15px;color:var(--accent2)">{{ b.amount|floatformat:0 }}원</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty"><div class="empty-icon">🎯</div><div>예산을 설정해 보세요!</div></div>
+</div>
+{% endif %}
+
+<script>
+function changeMonth() {
+  const y = document.getElementById('year-s').value;
+  const m = document.getElementById('month-s').value;
+  window.location.href = `/budget/?year=${y}&month=${m}`;
+}
+function fmtNum(el) {
+  const v = el.value.replace(/[^0-9]/g, '');
+  el.value = v ? parseInt(v).toLocaleString() : '';
+}
+</script>
+{% endblock %}

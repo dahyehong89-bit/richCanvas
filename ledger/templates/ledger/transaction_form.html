@@ -1,0 +1,73 @@
+{% extends 'ledger/base.html' %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto">
+  <h2 style="margin-bottom:24px;font-size:20px">거래 추가</h2>
+  <div class="card">
+    <form method="post" action="/transactions/add/">
+      {% csrf_token %}
+      <!-- Type -->
+      <div class="type-select">
+        <button type="button" class="type-btn" id="btn-expense" onclick="setType('expense')">지출</button>
+        <button type="button" class="type-btn" id="btn-income" onclick="setType('income')">수입</button>
+      </div>
+      <input type="hidden" name="type" id="type-input" value="expense">
+
+      <!-- Amount -->
+      <div class="form-group">
+        <label class="form-label">금액</label>
+        <input type="text" name="amount" class="form-control" placeholder="0" required
+          style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700"
+          oninput="formatAmount(this)" autocomplete="off">
+      </div>
+
+      <!-- Category -->
+      <div class="form-group">
+        <label class="form-label">카테고리</label>
+        <select name="category" class="form-control" id="cat-select">
+          <option value="">선택 안함</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}" data-type="{{ c.type }}">{{ c.icon }} {{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label class="form-label">내용 (선택)</label>
+        <input type="text" name="description" class="form-control" placeholder="어디에 썼나요?">
+      </div>
+
+      <!-- Date -->
+      <div class="form-group">
+        <label class="form-label">날짜</label>
+        <input type="date" name="date" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <a href="/" class="btn btn-ghost" style="flex:1;justify-content:center">취소</a>
+        <button type="submit" class="btn btn-primary" style="flex:2;justify-content:center">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function setType(type) {
+  document.getElementById('type-input').value = type;
+  document.getElementById('btn-expense').className = 'type-btn' + (type==='expense' ? ' active-expense' : '');
+  document.getElementById('btn-income').className = 'type-btn' + (type==='income' ? ' active-income' : '');
+  // Filter categories
+  const sel = document.getElementById('cat-select');
+  for (const opt of sel.options) {
+    if (!opt.value) continue;
+    opt.hidden = opt.dataset.type !== type;
+  }
+  if (sel.options[sel.selectedIndex]?.hidden) sel.value = '';
+}
+function formatAmount(el) {
+  const raw = el.value.replace(/[^0-9]/g, '');
+  el.value = raw ? parseInt(raw).toLocaleString() : '';
+}
+setType('expense');
+</script>
+{% endblock %}

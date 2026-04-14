@@ -1,0 +1,140 @@
+{% extends 'ledger/base.html' %}
+{% block content %}
+<!-- Month selector -->
+<div class="month-nav">
+  <select onchange="changeMonth(this)" id="year-select">
+    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>{% endfor %}
+  </select>
+  <select onchange="changeMonth(this)" id="month-select">
+    {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>{% endfor %}
+  </select>
+</div>
+
+<!-- Summary -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-label">💚 수입</div>
+    <div class="summary-amount income">{{ total_income|floatformat:0 }}원</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">❤️ 지출</div>
+    <div class="summary-amount expense">{{ total_expense|floatformat:0 }}원</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">💜 잔액</div>
+    <div class="summary-amount balance">{{ balance|floatformat:0 }}원</div>
+  </div>
+</div>
+
+<!-- Chart -->
+<div class="card">
+  <div class="card-title">📊 월별 수입/지출</div>
+  <canvas id="monthChart" height="180"></canvas>
+</div>
+
+<!-- Category breakdown -->
+{% if expense_by_cat %}
+<div class="card">
+  <div class="card-title">🗂 카테고리별 지출</div>
+  <canvas id="catChart" height="220"></canvas>
+</div>
+{% endif %}
+
+<!-- Budget -->
+{% if budget_data %}
+<div class="card">
+  <div class="card-title">🎯 예산 현황</div>
+  {% for b in budget_data %}
+  <div style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px">
+      <span>{{ b.icon }} {{ b.category }}</span>
+      <span style="font-family:'Space Mono',monospace;font-size:13px;color:{% if b.over %}var(--red){% else %}var(--muted){% endif %}">
+        {{ b.spent|floatformat:0 }} / {{ b.budget|floatformat:0 }}원
+      </span>
+    </div>
+    <div class="progress">
+      <div class="progress-bar {% if b.over %}over{% endif %}" style="width:{{ b.percent }}%"></div>
+    </div>
+    {% if b.over %}<div style="font-size:12px;color:var(--red);margin-top:3px">⚠️ 예산 초과!</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent transactions -->
+<div class="card">
+  <div class="section-header">
+    <div class="card-title" style="margin-bottom:0">🕐 최근 거래</div>
+    <a href="/transactions/?year={{ year }}&month={{ month }}" class="btn btn-ghost" style="padding:6px 12px;font-size:13px">전체보기</a>
+  </div>
+  {% if recent %}
+  {% for t in recent %}
+  <div class="tx-item">
+    <div class="tx-icon" style="background:{{ t.category.color|default:'#7c6af7' }}22">{{ t.category.icon|default:'💰' }}</div>
+    <div class="tx-info">
+      <div class="tx-desc">{{ t.description|default:t.category.name|default:'기타' }}</div>
+      <div class="tx-meta">{{ t.date|date:"m월 d일" }} · {{ t.category.name|default:'-' }}</div>
+    </div>
+    <div class="tx-amount {{ t.type }}">
+      {% if t.type == 'income' %}+{% else %}-{% endif %}{{ t.amount|floatformat:0 }}원
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty"><div class="empty-icon">📭</div><div>이번 달 거래가 없어요</div></div>
+  {% endif %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+function changeMonth() {
+  const y = document.getElementById('year-select').value;
+  const m = document.getElementById('month-select').value;
+  window.location.href = `/?year=${y}&month=${m}`;
+}
+
+// Monthly bar chart
+fetch(`/api/stats/?year={{ year }}`)
+  .then(r => r.json())
+  .then(data => {
+    const labels = data.monthly.map(d => d.month + '월');
+    new Chart(document.getElementById('monthChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: '수입', data: data.monthly.map(d => d.income), backgroundColor: '#34d39988', borderRadius: 6 },
+          { label: '지출', data: data.monthly.map(d => d.expense), backgroundColor: '#f8717188', borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Noto Sans KR' } } } },
+        scales: {
+          x: { ticks: { color: '#64748b' }, grid: { color: '#2e2e3f' } },
+          y: { ticks: { color: '#64748b', callback: v => v.toLocaleString() }, grid: { color: '#2e2e3f' } }
+        }
+      }
+    });
+  });
+
+// Category donut
+{% if expense_by_cat %}
+const catData = [{% for c in expense_by_cat %}{ label: '{{ c.category__icon|default:"💰" }} {{ c.category__name|default:"기타" }}', value: {{ c.total }}, color: '{{ c.category__color|default:"#7c6af7" }}' },{% endfor %}];
+new Chart(document.getElementById('catChart'), {
+  type: 'doughnut',
+  data: {
+    labels: catData.map(d => d.label),
+    datasets: [{ data: catData.map(d => d.value), backgroundColor: catData.map(d => d.color + 'cc'), borderColor: '#0f0f13', borderWidth: 2 }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Noto Sans KR' }, padding: 16 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}원` } }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

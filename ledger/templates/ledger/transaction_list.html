@@ -1,0 +1,55 @@
+{% extends 'ledger/base.html' %}
+{% block content %}
+<div class="section-header" style="margin-bottom:16px">
+  <h2 style="font-size:20px">거래 내역</h2>
+</div>
+
+<!-- Month nav -->
+<div class="month-nav">
+  <select onchange="changeMonth()" id="year-s">{% for y in years %}<option value="{{ y }}"{% if y==year %}selected{% endif %}>{{ y }}년</option>{% endfor %}</select>
+  <select onchange="changeMonth()" id="month-s">{% for m in months %}<option value="{{ m }}"{% if m==month %}selected{% endif %}>{{ m }}월</option>{% endfor %}</select>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <a href="?year={{ year }}&month={{ month }}" class="filter-chip {% if not type_filter %}active{% endif %}">전체</a>
+  <a href="?year={{ year }}&month={{ month }}&type=income" class="filter-chip {% if type_filter == 'income' %}active{% endif %}">💚 수입</a>
+  <a href="?year={{ year }}&month={{ month }}&type=expense" class="filter-chip {% if type_filter == 'expense' %}active{% endif %}">❤️ 지출</a>
+  {% for c in categories %}
+  <a href="?year={{ year }}&month={{ month }}&category={{ c.id }}" class="filter-chip {% if cat_filter == c.id|stringformat:'s' %}active{% endif %}">{{ c.icon }} {{ c.name }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  {% if transactions %}
+  {% for t in transactions %}
+  <div class="tx-item">
+    <div class="tx-icon" style="background:{{ t.category.color|default:'#7c6af7' }}22">{{ t.category.icon|default:'💰' }}</div>
+    <div class="tx-info">
+      <div class="tx-desc">{{ t.description|default:t.category.name|default:'기타' }}</div>
+      <div class="tx-meta">{{ t.date|date:"Y.m.d" }} · {{ t.category.name|default:'-' }}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="tx-amount {{ t.type }}">
+        {% if t.type == 'income' %}+{% else %}-{% endif %}{{ t.amount|floatformat:0 }}원
+      </div>
+      <form method="post" action="/transactions/delete/{{ t.id }}/" onsubmit="return confirm('삭제할까요?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger" style="padding:4px 8px;font-size:12px">삭제</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty"><div class="empty-icon">📭</div><div>거래 내역이 없어요</div></div>
+  {% endif %}
+</div>
+
+<script>
+function changeMonth() {
+  const y = document.getElementById('year-s').value;
+  const m = document.getElementById('month-s').value;
+  window.location.href = `/transactions/?year=${y}&month=${m}`;
+}
+</script>
+{% endblock %}
